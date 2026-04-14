@@ -1075,7 +1075,7 @@ tpButton.Name = "TpButton"
 tpButton.Size = UDim2.new(1, -14, 0, 28)
 tpButton.Position = UDim2.new(0, 7, 0, 74)
 tpButton.BackgroundColor3 = Color3.fromRGB(120, 70, 140)
-tpButton.Text = "Teleport (Z)"
+tpButton.Text = "Teleport (W)"
 tpButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 tpButton.TextSize = 13
 tpButton.Font = Enum.Font.GothamBold
@@ -1639,7 +1639,7 @@ local function doTeleport()
 		
 		isPlaying = false
 		tpButton.BackgroundColor3 = Color3.fromRGB(140, 70, 255)
-		tpButton.Text = isMobile and "Teleport (Z)" or "Teleport to Target (Z)"
+		tpButton.Text = isMobile and "Teleport (W)" or "Teleport to Target (Z)"
 		clearWaypoints()
 	end
 end
@@ -1677,7 +1677,7 @@ player.CharacterAdded:Connect(function(newCharacter)
 	updateSpawnerHeight()
 	originalSizes = {}
 end)
--- ====================== YZK V1 - VERSION FINALE (Drag + Speed Boost + Instant Grab OK) ======================
+-- ====================== YZK V1 - VERSION FINALE (Drag + Speed Boost) ======================
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
@@ -1785,6 +1785,7 @@ local function CreateWindow(options)
 
     local isMinimized = false
     local originalSize = settings.Size
+
     local function ToggleMinimize()
         isMinimized = not isMinimized
         if isMinimized then
@@ -1795,6 +1796,7 @@ local function CreateWindow(options)
             MinimizeButton.Text = "−"
         end
     end
+
     MinimizeButton.MouseButton1Click:Connect(ToggleMinimize)
     CloseButton.MouseButton1Click:Connect(function()
         TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0,0,0,0)}):Play()
@@ -1851,6 +1853,7 @@ local function CreateWindow(options)
         ToggleButton.AutoButtonColor = false
         ToggleButton.Active = true
         ToggleButton.Parent = Container
+
         Instance.new("UICorner", ToggleButton).CornerRadius = UDim.new(0, 12)
 
         local status = Instance.new("TextLabel", ToggleButton)
@@ -1926,6 +1929,7 @@ end
 local xrayDescendantConn = nil
 local XRAY_TRANSPARENCY = 0.65
 local xrayParts = {}
+
 local function isIgnored(part)
     if not part or not part:IsA("BasePart") then return true end
     local parent = part.Parent
@@ -1935,6 +1939,7 @@ local function isIgnored(part)
     end
     return false
 end
+
 local function applyXRayToPart(part)
     if isIgnored(part) then return end
     if not xrayParts[part] then
@@ -1942,6 +1947,7 @@ local function applyXRayToPart(part)
         part.LocalTransparencyModifier = XRAY_TRANSPARENCY
     end
 end
+
 local function removeAllXRay()
     for part, original in pairs(xrayParts) do
         if part and part.Parent then
@@ -1950,6 +1956,7 @@ local function removeAllXRay()
     end
     xrayParts = {}
 end
+
 local function XRay(state)
     states.XRay = state
     if state then
@@ -2159,6 +2166,7 @@ local function createSpeedUI()
     ToggleBtn.TextSize = 20
     ToggleBtn.Font = Enum.Font.GothamBold
 
+    -- Drag
     local dragging = false
     local dragStart, startPos
     local function startDrag(input)
@@ -2258,12 +2266,20 @@ local function createSpeedUI()
         SpeedCustomizer.IsMinimized = not SpeedCustomizer.IsMinimized
         if SpeedCustomizer.IsMinimized then
             MainFrame.Size = minimizedSize
-            SpeedLabel.Visible = false StealLabel.Visible = false JumpLabel.Visible = false
-            SpeedInput.Visible = false StealInput.Visible = false JumpInput.Visible = false
+            SpeedLabel.Visible = false
+            StealLabel.Visible = false
+            JumpLabel.Visible = false
+            SpeedInput.Visible = false
+            StealInput.Visible = false
+            JumpInput.Visible = false
         else
             MainFrame.Size = originalSize
-            SpeedLabel.Visible = true StealLabel.Visible = true JumpLabel.Visible = true
-            SpeedInput.Visible = true StealInput.Visible = true JumpInput.Visible = true
+            SpeedLabel.Visible = true
+            StealLabel.Visible = true
+            JumpLabel.Visible = true
+            SpeedInput.Visible = true
+            StealInput.Visible = true
+            JumpInput.Visible = true
         end
     end)
 
@@ -2310,384 +2326,13 @@ local function OpenSpeedBoost(state)
             end)
         end
     else
-        if speedUI then speedUI:Destroy() speedUI = nil end
+        if speedUI then 
+            speedUI:Destroy() 
+            speedUI = nil 
+        end
         SpeedCustomizer.Enabled = false
         if SpeedCustomizer.HeartbeatConn then SpeedCustomizer.HeartbeatConn:Disconnect() end
         if SpeedCustomizer.JumpConn then SpeedCustomizer.JumpConn:Disconnect() end
-    end
-end
-
--- ====================== INSTANT GRAB (Fenêtre plus petite) ======================
-local autoGrabUI = nil
-
-local function OpenInstantGrab(state)
-    if state then
-        if autoGrabUI then return end
-
-        -- ====================== CONFIG ======================
-        local CONFIG = { AUTO_STEAL_NEAREST = false }
-
-        -- ====================== SERVICES ======================
-        local ReplicatedStorage = game:GetService("ReplicatedStorage")
-        local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
-
-        -- ====================== DATA ======================
-        local AnimalsData = require(ReplicatedStorage:WaitForChild("Datas"):WaitForChild("Animals"))
-
-        -- ====================== VARIABLES ======================
-        local allAnimalsCache = {}
-        local PromptMemoryCache = {}
-        local InternalStealCache = {}
-        local LastTargetUID = nil
-        local IsStealing = false
-        local AUTO_STEAL_PROX_RADIUS = 7
-        local stealConnection = nil
-
-        -- ====================== FONCTIONS ======================
-        local function getHRP()
-            local char = LocalPlayer.Character
-            if not char then return nil end
-            return char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("UpperTorso")
-        end
-
-        local function isMyBase(plotName)
-            local plot = workspace.Plots:FindFirstChild(plotName)
-            if not plot then return false end
-            local sign = plot:FindFirstChild("PlotSign")
-            if sign then
-                local yourBase = sign:FindFirstChild("YourBase")
-                if yourBase and yourBase:IsA("BillboardGui") then
-                    return yourBase.Enabled == true
-                end
-            end
-            return false
-        end
-
-        local function scanSinglePlot(plot)
-            if not plot or not plot:IsA("Model") then return end
-            if isMyBase(plot.Name) then return end
-            local podiums = plot:FindFirstChild("AnimalPodiums")
-            if not podiums then return end
-            for _, podium in ipairs(podiums:GetChildren()) do
-                if podium:IsA("Model") and podium:FindFirstChild("Base") then
-                    local animalName = "Unknown"
-                    local spawn = podium.Base:FindFirstChild("Spawn")
-                    if spawn then
-                        for _, child in ipairs(spawn:GetChildren()) do
-                            if child:IsA("Model") and child.Name ~= "PromptAttachment" then
-                                animalName = child.Name
-                                local animalInfo = AnimalsData[animalName]
-                                if animalInfo and animalInfo.DisplayName then
-                                    animalName = animalInfo.DisplayName
-                                end
-                                break
-                            end
-                        end
-                    end
-                    table.insert(allAnimalsCache, {
-                        name = animalName,
-                        plot = plot.Name,
-                        slot = podium.Name,
-                        worldPosition = podium:GetPivot().Position,
-                        uid = plot.Name .. "_" .. podium.Name,
-                    })
-                end
-            end
-        end
-
-        local function initializeScanner()
-            task.wait(2)
-            local plots = workspace:WaitForChild("Plots", 10)
-            if not plots then return end
-            for _, plot in ipairs(plots:GetChildren()) do
-                if plot:IsA("Model") then scanSinglePlot(plot) end
-            end
-            plots.ChildAdded:Connect(function(plot)
-                if plot:IsA("Model") then
-                    task.wait(0.5)
-                    scanSinglePlot(plot)
-                end
-            end)
-            task.spawn(function()
-                while task.wait(5) do
-                    allAnimalsCache = {}
-                    for _, plot in ipairs(plots:GetChildren()) do
-                        if plot:IsA("Model") then scanSinglePlot(plot) end
-                    end
-                end
-            end)
-        end
-
-        local function findProximityPromptForAnimal(animalData)
-            if not animalData then return nil end
-            local cachedPrompt = PromptMemoryCache[animalData.uid]
-            if cachedPrompt and cachedPrompt.Parent then return cachedPrompt end
-            local plot = workspace.Plots:FindFirstChild(animalData.plot)
-            if not plot then return nil end
-            local podiums = plot:FindFirstChild("AnimalPodiums")
-            if not podiums then return nil end
-            local podium = podiums:FindFirstChild(animalData.slot)
-            if not podium then return nil end
-            local base = podium:FindFirstChild("Base")
-            if not base then return nil end
-            local spawn = base:FindFirstChild("Spawn")
-            if not spawn then return nil end
-            local attach = spawn:FindFirstChild("PromptAttachment")
-            if not attach then return nil end
-            for _, p in ipairs(attach:GetChildren()) do
-                if p:IsA("ProximityPrompt") then
-                    PromptMemoryCache[animalData.uid] = p
-                    return p
-                end
-            end
-            return nil
-        end
-
-        local function shouldSteal(animalData)
-            if not animalData or not animalData.worldPosition then return false end
-            local hrp = getHRP()
-            if not hrp then return false end
-            local currentDistance = (hrp.Position - animalData.worldPosition).Magnitude
-            return currentDistance <= AUTO_STEAL_PROX_RADIUS
-        end
-
-        local function buildStealCallbacks(prompt)
-            if InternalStealCache[prompt] then return end
-            local data = { holdCallbacks = {}, triggerCallbacks = {}, ready = true }
-            local ok1, conns1 = pcall(getconnections, prompt.PromptButtonHoldBegan)
-            if ok1 and type(conns1) == "table" then
-                for _, conn in ipairs(conns1) do
-                    if type(conn.Function) == "function" then
-                        table.insert(data.holdCallbacks, conn.Function)
-                    end
-                end
-            end
-            local ok2, conns2 = pcall(getconnections, prompt.Triggered)
-            if ok2 and type(conns2) == "table" then
-                for _, conn in ipairs(conns2) do
-                    if type(conn.Function) == "function" then
-                        table.insert(data.triggerCallbacks, conn.Function)
-                    end
-                end
-            end
-            if (#data.holdCallbacks > 0) or (#data.triggerCallbacks > 0) then
-                InternalStealCache[prompt] = data
-            end
-        end
-
-        local function executeInternalStealAsync(prompt, animalData)
-            local data = InternalStealCache[prompt]
-            if not data or not data.ready then return false end
-            data.ready = false
-            IsStealing = true
-            task.spawn(function()
-                if #data.holdCallbacks > 0 then
-                    for _, fn in ipairs(data.holdCallbacks) do task.spawn(fn) end
-                end
-                task.wait(0.2)
-                if #data.triggerCallbacks > 0 then
-                    for _, fn in ipairs(data.triggerCallbacks) do task.spawn(fn) end
-                end
-                task.wait(0.01)
-                data.ready = true
-                task.wait(0.01)
-                IsStealing = false
-            end)
-            return true
-        end
-
-        local function attemptSteal(prompt, animalData)
-            if not prompt or not prompt.Parent then return false end
-            buildStealCallbacks(prompt)
-            if not InternalStealCache[prompt] then return false end
-            return executeInternalStealAsync(prompt, animalData)
-        end
-
-        local function getNearestAnimal()
-            local hrp = getHRP()
-            if not hrp then return nil end
-            local nearest = nil
-            local minDist = math.huge
-            for _, animalData in ipairs(allAnimalsCache) do
-                if isMyBase(animalData.plot) then continue end
-                if animalData.worldPosition then
-                    local dist = (hrp.Position - animalData.worldPosition).Magnitude
-                    if dist < minDist then
-                        minDist = dist
-                        nearest = animalData
-                    end
-                end
-            end
-            return nearest
-        end
-
-        local function autoStealLoop()
-            if stealConnection then stealConnection:Disconnect() end
-            stealConnection = RunService.Heartbeat:Connect(function()
-                if not CONFIG.AUTO_STEAL_NEAREST then return end
-                if IsStealing then return end
-                local targetAnimal = getNearestAnimal()
-                if not targetAnimal then return end
-                if not shouldSteal(targetAnimal) then return end
-                if LastTargetUID ~= targetAnimal.uid then
-                    LastTargetUID = targetAnimal.uid
-                end
-                local prompt = PromptMemoryCache[targetAnimal.uid]
-                if not prompt or not prompt.Parent then
-                    prompt = findProximityPromptForAnimal(targetAnimal)
-                end
-                if prompt then
-                    attemptSteal(prompt, targetAnimal)
-                end
-            end)
-        end
-
-        -- ====================== INTERFACE (Fenêtre plus petite) ======================
-        local screenGui = Instance.new("ScreenGui")
-        screenGui.Name = "AutoStealGUI"
-        screenGui.ResetOnSpawn = false
-        screenGui.Parent = PlayerGui
-
-        local mainFrame = Instance.new("Frame")
-        mainFrame.Name = "MainFrame"
-        mainFrame.Size = UDim2.new(0, 270, 0, 130)   -- Fenêtre rendue plus petite
-        mainFrame.Position = UDim2.new(0.5, -135, 0.35, 0)
-        mainFrame.BackgroundColor3 = COLORS.Darkest
-        mainFrame.BorderSizePixel = 0
-        mainFrame.Active = true
-        mainFrame.Parent = screenGui
-
-        Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 22)
-
-        local mainGradient = Instance.new("UIGradient", mainFrame)
-        mainGradient.Rotation = 40
-        mainGradient.Color = ColorSequence.new({
-            ColorSequenceKeypoint.new(0, COLORS.Dark),
-            ColorSequenceKeypoint.new(0.5, COLORS.Medium),
-            ColorSequenceKeypoint.new(1, Color3.fromRGB(45, 20, 70))
-        })
-
-        local mainStroke = Instance.new("UIStroke", mainFrame)
-        mainStroke.Color = COLORS.Neon
-        mainStroke.Thickness = 2.2
-        mainStroke.Transparency = 0.45
-
-        -- Top Bar
-        local topBar = Instance.new("Frame", mainFrame)
-        topBar.Size = UDim2.new(1, -16, 0, 32)
-        topBar.Position = UDim2.new(0, 8, 0, 8)
-        topBar.BackgroundColor3 = Color3.fromRGB(20, 14, 38)
-        topBar.BackgroundTransparency = 0.25
-        topBar.Active = true
-        Instance.new("UICorner", topBar).CornerRadius = UDim.new(0, 12)
-
-        local titleLabel = Instance.new("TextLabel", topBar)
-        titleLabel.BackgroundTransparency = 1
-        titleLabel.Size = UDim2.new(1, -80, 1, 0)
-        titleLabel.Position = UDim2.new(0, 16, 0, 0)
-        titleLabel.Font = Enum.Font.GothamBlack
-        titleLabel.Text = "YZK AUTO GRAB"
-        titleLabel.TextSize = 17
-        titleLabel.TextColor3 = COLORS.White
-        titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-
-        local minimizeBtn = Instance.new("TextButton", topBar)
-        minimizeBtn.Size = UDim2.fromOffset(26, 26)
-        minimizeBtn.Position = UDim2.new(1, -68, 0.5, -13)
-        minimizeBtn.BackgroundColor3 = Color3.fromRGB(35, 25, 55)
-        minimizeBtn.Text = "−"
-        minimizeBtn.Font = Enum.Font.GothamBold
-        minimizeBtn.TextSize = 20
-        minimizeBtn.TextColor3 = Color3.fromRGB(255, 215, 100)
-        Instance.new("UICorner", minimizeBtn).CornerRadius = UDim.new(0, 8)
-
-        local closeBtn = Instance.new("TextButton", topBar)
-        closeBtn.Size = UDim2.fromOffset(26, 26)
-        closeBtn.Position = UDim2.new(1, -36, 0.5, -13)
-        closeBtn.BackgroundColor3 = Color3.fromRGB(35, 25, 55)
-        closeBtn.Text = "×"
-        closeBtn.Font = Enum.Font.GothamBold
-        closeBtn.TextSize = 18
-        closeBtn.TextColor3 = COLORS.Red
-        Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
-
-        -- Fine barre + Toggle
-        local header = Instance.new("Frame", mainFrame)
-        header.Size = UDim2.new(1, -20, 0, 48)
-        header.Position = UDim2.new(0, 10, 0, 52)
-        header.BackgroundColor3 = Color3.fromRGB(32, 24, 52)
-        header.BorderSizePixel = 0
-        Instance.new("UICorner", header).CornerRadius = UDim.new(0, 12)
-
-        local toggleButton = Instance.new("TextButton", header)
-        toggleButton.Size = UDim2.new(1, 0, 1, 0)
-        toggleButton.BackgroundTransparency = 1
-        toggleButton.Text = "OFF"
-        toggleButton.TextColor3 = COLORS.White
-        toggleButton.TextSize = 20
-        toggleButton.Font = Enum.Font.GothamBold
-        toggleButton.AutoButtonColor = false
-
-        local function updateToggleAppearance()
-            if CONFIG.AUTO_STEAL_NEAREST then
-                toggleButton.Text = "ON"
-                header.BackgroundColor3 = Color3.fromRGB(120, 40, 220)
-            else
-                toggleButton.Text = "OFF"
-                header.BackgroundColor3 = Color3.fromRGB(32, 24, 52)
-            end
-        end
-
-        toggleButton.MouseButton1Click:Connect(function()
-            CONFIG.AUTO_STEAL_NEAREST = not CONFIG.AUTO_STEAL_NEAREST
-            updateToggleAppearance()
-        end)
-
-        -- Drag
-        local dragging = false
-        local dragStart, startPos
-        topBar.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = true
-                dragStart = input.Position
-                startPos = mainFrame.Position
-            end
-        end)
-        UserInputService.InputChanged:Connect(function(input)
-            if not dragging then return end
-            if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-                local delta = input.Position - dragStart
-                mainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-            end
-        end)
-        topBar.InputEnded:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                dragging = false
-            end
-        end)
-
-        minimizeBtn.MouseButton1Click:Connect(function()
-            mainFrame.Visible = not mainFrame.Visible
-        end)
-
-        closeBtn.MouseButton1Click:Connect(function()
-            CONFIG.AUTO_STEAL_NEAREST = false
-            screenGui:Destroy()
-            autoGrabUI = nil
-        end)
-
-        autoGrabUI = screenGui
-
-        -- Lancement
-        initializeScanner()
-        autoStealLoop()
-        updateToggleAppearance()
-
-    else
-        if autoGrabUI then
-            autoGrabUI:Destroy()
-            autoGrabUI = nil
-        end
     end
 end
 
@@ -2699,6 +2344,356 @@ myWindow.AddToggle("FPS Boost", false, FPSBoost)
 myWindow.AddToggle("Infinite Jump", false, InfJump)
 myWindow.AddToggle("ESP Players", false, ESP)
 myWindow.AddToggle("Speed Boost", false, OpenSpeedBoost)
-myWindow.AddToggle("Instant Grab", false, OpenInstantGrab)
 
-print("✅ YZK V1 - Instant Grab rendu plus petit")
+-- ====================== INSTANT GRAB ======================
+local InstantGrabScript = nil
+
+myWindow.AddToggle("Instant Grab", false, function(state)
+    if state then
+        -- Exécute le script Instant Grab
+        task.spawn(function()
+            local success, err = pcall(function()
+                InstantGrabScript = loadstring([[ 
+                    -- ICI TOUT LE CONTENU DU FICHIER "instant grab.txt"
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage= game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local LocalPlayer = Players.LocalPlayer
+local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
+-- ════════════════════════════════════════════════════════════
+-- SYNCHRONIZER
+-- ════════════════════════════════════════════════════════════
+local function getInternalTable()
+local Packages = ReplicatedStorage:FindFirstChild("Packages"); if not Packages then return nil end
+local SynMod = Packages:FindFirstChild("Synchronizer"); if not SynMod then return nil end
+local ok, syn = pcall(require, SynMod); if not ok or not syn then return nil end
+local Get = syn.Get; if type(Get)~="function" then return nil end
+for i=1,5 do local s,u=pcall(getupvalue,Get,i) if s and type(u)=="table" then if u.___private or u.___channels or u.___data then return u end for k,v in pairs(u) do if type(k)=="string" and k:match("^Plot_") or type(v)=="table" then return u end end end end
+local s,e=pcall(getfenv,Get); if s and e and e.self then return e.self end
+return nil
+end
+local SyncInt={_cache={},_data=nil}
+task.spawn(function() for i=1,10 do SyncInt._data=getInternalTable(); if SyncInt._data then break end; task.wait(1) end end)
+local function stealthGet(n) if not n or type(n)~="string" then return nil end if SyncInt._cache[n]==false then return nil end if SyncInt._data then for _,k in ipairs({n,"Plot_"..n,"Plot"..n,n.."_Channel","Channel_"..n}) do if SyncInt._data[k] then SyncInt._cache[n]=SyncInt._data[k]; return SyncInt._data[k] end end for k,v in pairs(SyncInt._data) do if type(k)=="string" and (k==n or k:find(n,1,true)) and type(v)=="table" then SyncInt._cache[n]=v; return v end end end SyncInt._cache[n]=false; return nil end
+local function sProp(ch,p) if not ch or type(ch)~="table" then return nil end if ch[p] then return ch[p] end if type(ch.Get)=="function" then local ok,r=pcall(ch.Get,ch,p); if ok then return r end end local alts={Owner={"owner","Owner","plotOwner","PlotOwner"},AnimalList={"animalList","AnimalList","animals","Animals","pets"}} if alts[p] then for _,a in ipairs(alts[p]) do if ch[a] then return ch[a] end end end return nil end
+-- ════════════════════════════════════════════════════════════
+-- MODULES
+-- ════════════════════════════════════════════════════════════
+local Datas=ReplicatedStorage:WaitForChild("Datas")
+local Shared=ReplicatedStorage:WaitForChild("Shared")
+local Utils=ReplicatedStorage:WaitForChild("Utils")
+local AnimalsData,AnimalsShared,NumberUtils
+task.spawn(function() for i=1,10 do local s1,d=pcall(require,Datas:WaitForChild("Animals")) local s2,sh=pcall(require,Shared:WaitForChild("Animals")) local s3,nu=pcall(require,Utils:WaitForChild("NumberUtils")) if s1 and d then AnimalsData=d end if s2 and sh then AnimalsShared=sh end if s3 and nu then NumberUtils=nu end if AnimalsData and AnimalsShared and NumberUtils then break end task.wait(0.5) end end)
+-- ════════════════════════════════════════════════════════════
+-- STATE
+-- ════════════════════════════════════════════════════════════
+local allAnimals = {}
+local plotChannels = {}
+local lastHash = {}
+local PromptCache = {}
+local StealCache = {}
+local autoMode = true
+local selIdx = 1
+local enabled = false
+local espObjects = {}
+local TRIGGER_DIST = 10
+local CHARGE_SPEED = 70
+local DIP_AMOUNT = 8
+local DIP_SPEED = 100
+local RUSH_SPEED = 420
+local STEAL_COOLDOWN = 0.4
+local stealPct = 0
+local stealTarget = nil
+local stealPhase = "idle"
+local dipTarget = 0
+local lastStealTime = 0
+local stealFiring = false
+local G={}
+
+-- ════════════════════════════════════════════════════════════
+-- MY BASE + PET + PROMPT + SCANNER (ESP complètement supprimé)
+-- ════════════════════════════════════════════════════════════
+local function isMyBase(ad)
+if not ad or not ad.plot then return false end
+local plots=workspace:FindFirstChild("Plots"); if not plots then return false end
+local plot=plots:FindFirstChild(ad.plot); if not plot then return false end
+local ch=stealthGet(plot.Name)
+if ch then local o=sProp(ch,"Owner") if o then if typeof(o)=="Instance" and o:IsA("Player") then return o.UserId==LocalPlayer.UserId end if type(o)=="table" and o.UserId then return o.UserId==LocalPlayer.UserId end if typeof(o)=="Instance" then return o==LocalPlayer end end end
+local sign=plot:FindFirstChild("PlotSign") if sign then local yb=sign:FindFirstChild("YourBase"); if yb and yb:IsA("BillboardGui") then return yb.Enabled end end
+return false
+end
+
+local function findPetModel(ad)
+if not ad then return nil end
+local plots=workspace:FindFirstChild("Plots"); if not plots then return nil end
+local plot=plots:FindFirstChild(ad.plot); if not plot then return nil end
+local pods=plot:FindFirstChild("AnimalPodiums");if not pods then return nil end
+local pod=pods:FindFirstChild(ad.slot); if not pod then return nil end
+local base=pod:FindFirstChild("Base")
+if base then local spwn=base:FindFirstChild("Spawn") if spwn then for _,c in ipairs(spwn:GetChildren()) do if c:IsA("Model") or c:IsA("BasePart") then return c end end end end
+local function deepFind(parent) for _,c in ipairs(parent:GetChildren()) do if c:IsA("Model") or (c:IsA("BasePart") and c.Name~="Base") then return c end local r=deepFind(c); if r then return r end end return nil end
+return deepFind(pod)
+end
+local function getPetPosition(ad)
+local model=findPetModel(ad); if not model then return nil end
+if model:IsA("Model") then
+if model.PrimaryPart then return model.PrimaryPart.Position end
+local ok,cf=pcall(function() return model:GetBoundingBox() end) if ok and cf then return cf.Position end
+local part=model:FindFirstChildWhichIsA("BasePart") if part then return part.Position end
+elseif model:IsA("BasePart") then return model.Position end
+return nil
+end
+local function getPlayerPos()
+local char=LocalPlayer.Character; if not char then return nil end
+local hrp=char:FindFirstChild("HumanoidRootPart"); if not hrp then return nil end
+return hrp.Position
+end
+local function distToTarget(ad)
+local petPos=getPetPosition(ad); if not petPos then return math.huge end
+local plrPos=getPlayerPos(); if not plrPos then return math.huge end
+return (petPos-plrPos).Magnitude
+end
+local function clearESP(uid)
+if espObjects[uid] then 
+    local e=espObjects[uid] 
+    if e.hl and e.hl.Parent then e.hl:Destroy() end 
+    if e.bb and e.bb.Parent then e.bb:Destroy() end 
+    espObjects[uid]=nil 
+end
+end
+local function clearAllESP() for uid in pairs(espObjects) do clearESP(uid) end end
+
+local function findPrompt(ad)
+if not ad then return nil end local c=PromptCache[ad.uid]; if c and c.Parent then return c end
+local plots=workspace:FindFirstChild("Plots"); if not plots then return nil end local plot=plots:FindFirstChild(ad.plot); if not plot then return nil end local pods=plot:FindFirstChild("AnimalPodiums");if not pods then return nil end local pod=pods:FindFirstChild(ad.slot); if not pod then return nil end local base=pod:FindFirstChild("Base"); if not base then return nil end local spwn=base:FindFirstChild("Spawn"); if not spwn then return nil end local att=spwn:FindFirstChild("PromptAttachment");if not att then return nil end for _,p in ipairs(att:GetChildren()) do if p:IsA("ProximityPrompt") then PromptCache[ad.uid]=p; return p end end return nil
+end
+local function buildCallbacks(prompt) if StealCache[prompt] then return end local data={hold={},trig={},ready=true} local ok1,c1=pcall(getconnections,prompt.PromptButtonHoldBegan) if ok1 and type(c1)=="table" then for _,c in ipairs(c1) do if type(c.Function)=="function" then table.insert(data.hold,c.Function) end end end local ok2,c2=pcall(getconnections,prompt.Triggered) if ok2 and type(c2)=="table" then for _,c in ipairs(c2) do if type(c.Function)=="function" then table.insert(data.trig,c.Function) end end end if #data.hold>0 or #data.trig>0 then StealCache[prompt]=data end end
+local function runList(list) for _,fn in ipairs(list) do task.spawn(fn) end end
+local function fireSteal(prompt) local data=StealCache[prompt]; if not data then return end if #data.hold>0 then runList(data.hold) end task.wait(0.05) if #data.trig>0 then runList(data.trig) end end
+local function getHash(al) if not al then return "" end local h="" for s,d in pairs(al) do if type(d)=="table" then h=h..tostring(s)..tostring(d.Index)..tostring(d.Mutation) end end return h end
+local function scanPlot(plot)
+pcall(function()
+local uid=plot.Name local ch=stealthGet(uid); if not ch then return end local al=sProp(ch,"AnimalList") local hash=getHash(al) if lastHash[uid]==hash then return end lastHash[uid]=hash
+for i=#allAnimals,1,-1 do if allAnimals[i].plot==uid then table.remove(allAnimals,i) end end
+local owner=sProp(ch,"Owner") if not owner or not Players:FindFirstChild(owner.Name) or owner.UserId == LocalPlayer.UserId then return end if not al then return end
+for slot,ad in pairs(al) do if type(ad)=="table" then local nm=ad.Index local info=AnimalsData and AnimalsData[nm]; if not info then continue end local gen=AnimalsShared and AnimalsShared:GetGeneration(nm,ad.Mutation,ad.Traits,nil) or 0 local genT="$"..(NumberUtils and NumberUtils:ToString(gen) or tostring(gen)).."/s" table.insert(allAnimals,{ name=info.DisplayName or nm,genText=genT,genValue=gen, mutation=ad.Mutation or "None", owner=owner.Name or "?", plot=uid,slot=tostring(slot),uid=uid.."_"..tostring(slot), }) end end table.sort(allAnimals,function(a,b) return a.genValue>b.genValue end)
+end)
+end
+local function setupPlot(plot) if plotChannels[plot.Name] then return end local ch; for i=1,3 do ch=stealthGet(plot.Name); if ch then break end; task.wait(0.3) end if not ch then return end plotChannels[plot.Name]=true; scanPlot(plot) plot.DescendantAdded:Connect(function() task.wait(0.05); scanPlot(plot) end) plot.DescendantRemoving:Connect(function() task.wait(0.05); scanPlot(plot) end) task.spawn(function() while plot.Parent and plotChannels[plot.Name] do task.wait(1); scanPlot(plot) end end) end
+local function initScanner()
+local plots=workspace:FindFirstChild("Plots") if not plots then for i=1,30 do plots=workspace:FindFirstChild("Plots"); if plots then break end; task.wait(0.5) end if not plots then return end end
+for _,p in ipairs(plots:GetChildren()) do task.spawn(setupPlot,p) end
+plots.ChildAdded:Connect(function(p) task.wait(0.2); task.spawn(setupPlot,p) end)
+plots.ChildRemoved:Connect(function(p) plotChannels[p.Name]=nil; lastHash[p.Name]=nil for i=#allAnimals,1,-1 do if allAnimals[i].plot==p.Name then table.remove(allAnimals,i) end end end)
+end
+-- ════════════════════════════════════════════════════════════
+-- GUI - Titre YZK AUTO GRAB blanc + plus petit
+-- ════════════════════════════════════════════════════════════
+local W = 260
+local H = 118
+local Darkest = Color3.fromRGB(13, 8, 28)
+local Dark = Color3.fromRGB(18, 12, 35)
+local Medium = Color3.fromRGB(28, 18, 52)
+local Accent = Color3.fromRGB(170, 80, 255)
+local Neon = Color3.fromRGB(200, 110, 255)
+local ButtonColor = Color3.fromRGB(32, 24, 52)
+local function updateUI()
+if G.status then
+if enabled then
+G.status.Text = "ON"
+G.status.BackgroundColor3 = Color3.fromRGB(34, 170, 34)
+else
+G.status.Text = "OFF"
+G.status.BackgroundColor3 = ButtonColor
+end
+end
+end
+local function createGUI()
+local old=PlayerGui:FindFirstChild("ExtAutoGrabUI"); if old then old:Destroy() end
+local sg=Instance.new("ScreenGui")
+sg.Name="ExtAutoGrabUI"; sg.ResetOnSpawn=false
+sg.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
+sg.DisplayOrder=200; sg.IgnoreGuiInset=true; sg.Parent=PlayerGui
+local mf=Instance.new("Frame")
+mf.Name="MainFrame"
+mf.Size=UDim2.new(0, W, 0, H)
+mf.Position=UDim2.new(0.5, -W/2, 0.75, -60)
+mf.BackgroundColor3 = Darkest
+mf.BorderSizePixel=0
+mf.ZIndex=100
+mf.ClipsDescendants=true
+mf.Parent=sg
+local mfC=Instance.new("UICorner"); mfC.CornerRadius=UDim.new(0,14); mfC.Parent=mf
+local mfS=Instance.new("UIStroke")
+mfS.Color = Medium
+mfS.Thickness = 1.6
+mfS.Transparency = 0.35
+mfS.Parent=mf
+-- Header
+local hf=Instance.new("Frame")
+hf.Size=UDim2.new(1,0,0,38)
+hf.BackgroundTransparency=1
+hf.ZIndex=101; hf.Parent=mf
+local titleLbl=Instance.new("TextLabel")
+titleLbl.Size=UDim2.new(0,180,1,0)
+titleLbl.Position=UDim2.new(0,14,0,0)
+titleLbl.BackgroundTransparency=1
+titleLbl.Text="YZK AUTO GRAB"
+titleLbl.Font=Enum.Font.GothamBlack
+titleLbl.TextSize=16
+titleLbl.TextColor3=Color3.new(1,1,1)
+titleLbl.TextXAlignment=Enum.TextXAlignment.Left
+titleLbl.ZIndex=102; titleLbl.Parent=hf
+-- Boutons header
+local minBtn=Instance.new("TextButton")
+minBtn.Size=UDim2.new(0,22,0,22)
+minBtn.Position=UDim2.new(1,-52,0.5,-11)
+minBtn.BackgroundTransparency=1
+minBtn.Text="–"
+minBtn.Font=Enum.Font.GothamBlack
+minBtn.TextSize=16
+minBtn.TextColor3=Accent
+minBtn.AutoButtonColor=false
+minBtn.ZIndex=103; minBtn.Parent=hf
+local closeBtn=Instance.new("TextButton")
+closeBtn.Size=UDim2.new(0,22,0,22)
+closeBtn.Position=UDim2.new(1,-26,0.5,-11)
+closeBtn.BackgroundTransparency=1
+closeBtn.Text="×"
+closeBtn.Font=Enum.Font.GothamBlack
+closeBtn.TextSize=16
+closeBtn.TextColor3=Color3.fromRGB(180,180,180)
+closeBtn.AutoButtonColor=false
+closeBtn.ZIndex=103; closeBtn.Parent=hf
+-- Gros bouton OFF
+local statusBtn=Instance.new("TextButton")
+statusBtn.Size=UDim2.new(1,-24,0,48)
+statusBtn.Position=UDim2.new(0,12,0,46)
+statusBtn.BackgroundColor3 = ButtonColor
+statusBtn.BorderSizePixel=0
+statusBtn.Text="OFF"
+statusBtn.Font=Enum.Font.GothamBlack
+statusBtn.TextSize=17
+statusBtn.TextColor3=Color3.fromRGB(255,255,255)
+statusBtn.AutoButtonColor=false
+statusBtn.ZIndex=103; statusBtn.Parent=mf
+local bC=Instance.new("UICorner"); bC.CornerRadius=UDim.new(0,10); bC.Parent=statusBtn
+G.status = statusBtn
+-- Drag
+local dragging,dInput,mPos,fPos=false,nil,nil,nil
+hf.InputBegan:Connect(function(inp)
+if inp.UserInputType==Enum.UserInputType.MouseButton1 or inp.UserInputType==Enum.UserInputType.Touch then
+dragging=true; mPos=inp.Position; fPos=mf.Position
+inp.Changed:Connect(function() if inp.UserInputState==Enum.UserInputState.End then dragging=false end end)
+end
+end)
+hf.InputChanged:Connect(function(inp)
+if inp.UserInputType==Enum.UserInputType.MouseMovement or inp.UserInputType==Enum.UserInputType.Touch then dInput=inp end
+end)
+UserInputService.InputChanged:Connect(function(inp)
+if inp==dInput and dragging then
+local d=inp.Position-mPos
+mf.Position=UDim2.new(fPos.X.Scale,fPos.X.Offset+d.X,fPos.Y.Scale,fPos.Y.Offset+d.Y)
+end
+end)
+-- Toggle
+statusBtn.MouseButton1Click:Connect(function()
+enabled=not enabled
+if not enabled then
+clearAllESP()
+stealPct=0; stealTarget=nil; stealPhase="idle"
+dipTarget=0; stealFiring=false
+else
+stealPhase="charging"
+end
+updateUI()
+end)
+-- Close
+closeBtn.MouseButton1Click:Connect(function() sg:Destroy() end)
+return true
+end
+-- ════════════════════════════════════════════════════════════
+-- STEAL SYSTEM V2 + INIT
+-- ════════════════════════════════════════════════════════════
+local function getTargetAnimal()
+if not enabled then return nil end
+if autoMode then
+if #allAnimals==0 then return nil end
+local best,bestDist=nil,math.huge
+for _,pet in ipairs(allAnimals) do
+if not isMyBase(pet) then local d=distToTarget(pet) if d<bestDist then bestDist=d; best=pet end end
+end
+return best
+else
+local pet=allAnimals[selIdx] if pet and not isMyBase(pet) then return pet end return nil
+end
+end
+RunService.Heartbeat:Connect(function(dt)
+if not enabled then if stealPhase~="idle" then stealPct=0; stealTarget=nil; stealPhase="idle"; dipTarget=0; stealFiring=false updateUI() end return end
+if stealFiring then return end
+local target=getTargetAnimal()
+if target~=stealTarget then stealTarget=target
+if not target then
+if stealPhase=="dipping" or stealPhase=="rushing" then stealPct=90; stealPhase="holding" elseif stealPhase=="idle" then stealPhase="charging" end
+else
+if stealPhase=="idle" then stealPhase="charging" elseif stealPhase=="holding" or stealPhase=="dipping" or stealPhase=="rushing" then stealPct=90; stealPhase="holding"; dipTarget=0 end
+end
+end
+if not stealTarget then updateUI(); return end
+local dist=distToTarget(stealTarget)
+if stealPhase=="charging" then
+stealPct = stealPct + CHARGE_SPEED * dt
+if stealPct >= 95 then stealPct = 95 stealPhase = "holding" end
+elseif stealPhase=="holding" then
+stealPct = 95
+if dist <= TRIGGER_DIST then dipTarget = 95 - DIP_AMOUNT - math.random(0, 3) stealPhase = "dipping" end
+elseif stealPhase=="dipping" then
+stealPct = stealPct - DIP_SPEED * dt
+if stealPct <= dipTarget then stealPct = dipTarget stealPhase = "rushing" end
+elseif stealPhase=="rushing" then
+stealPct = stealPct + RUSH_SPEED * dt
+if stealPct >= 100 then
+stealPct = 100 updateUI()
+local now=tick()
+if now - lastStealTime >= STEAL_COOLDOWN then
+lastStealTime=now stealFiring=true
+task.spawn(function()
+local prompt = PromptCache[stealTarget and stealTarget.uid or ""] or findPrompt(stealTarget)
+if prompt then buildCallbacks(prompt) if StealCache[prompt] and StealCache[prompt].ready then fireSteal(prompt) end end
+task.wait(0.25)
+stealPct = 95 stealPhase = "holding" dipTarget = 0 stealFiring = false updateUI()
+end)
+else
+stealPct = 95 stealPhase = "holding" dipTarget = 0
+end
+return
+end
+end
+updateUI()
+end)
+task.spawn(function()
+while not AnimalsData or not AnimalsShared or not NumberUtils do task.wait(0.5) end
+task.wait(1.5)
+if not createGUI() then warn("[YZK V2] GUI failed!"); return end
+initScanner()
+task.wait(1)
+updateUI()
+end)
+                ]])()
+            end)
+            if not success then
+                warn("[YZK] Erreur lors du chargement d'Instant Grab :", err)
+            end
+        end)
+    else
+        -- Désactivation (optionnel)
+        print("Instant Grab désactivé")
+        if InstantGrabScript then
+            -- Tu peux ajouter ici une logique de désactivation si besoin
+        end
+    end
+end)
+
+print("✅ YZK V1 - Instant Grab ajouté avec succès")
