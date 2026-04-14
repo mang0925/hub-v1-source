@@ -18,7 +18,7 @@ local Whitelist = {
     "MANGOAT090",
     "sadowyoni_ytb",
     "Lz_49k6",
-    "personne",
+    "tropmignon44",
     "personne",
     "personne",
     "personne",
