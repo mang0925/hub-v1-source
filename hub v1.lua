@@ -19,7 +19,7 @@ local Whitelist = {
     "sadowyoni_ytb",
     "Lz_49k6",
     "tropmignon44",
-    "Louisrodrigues321",
+    "personne",
     "R2_7680",
     "Bejdi_FV",
     "personne",
